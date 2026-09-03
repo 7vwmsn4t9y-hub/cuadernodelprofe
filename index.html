@@ -198,7 +198,7 @@ input,button,textarea{color:inherit;}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 import {
-  getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut,
+  getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut,
   setPersistence, browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import {
@@ -216,12 +216,10 @@ const firebaseConfig = {
 };
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
-const googleProvider = new GoogleAuthProvider();
 const db = initializeFirestore(fbApp, {
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
 });
 setPersistence(auth, browserLocalPersistence).catch(()=>{});
-getRedirectResult(auth).catch(err=>{ console.error('redirect sign-in error', err); });
 
 function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function todayISO(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -415,18 +413,24 @@ function renderLogin(errorMsg){
   return '<div class="login-wrap"><div class="login-card">'+
     '<div class="kicker">Cuaderno del profe</div>'+
     '<h1>Iniciar sesión</h1>'+
-    '<button id="loginBtn" class="google-btn"><span class="google-icon">'+ICONS.google+'</span>Continuar con Google</button>'+
+    '<input type="email" id="loginEmail" placeholder="Email" autocomplete="username" autocapitalize="off">'+
+    '<input type="password" id="loginPassword" placeholder="Contraseña" autocomplete="current-password">'+
+    '<button id="loginBtn" class="primarybtn">Entrar</button>'+
     '<div class="login-error">'+esc(errorMsg||'')+'</div>'+
     '</div></div>';
 }
 function showLogin(errorMsg){
   document.getElementById('app').innerHTML=renderLogin(errorMsg);
+  const em=document.getElementById('loginEmail');
+  if(em) em.focus();
 }
 function doLogin(){
+  const email=(document.getElementById('loginEmail').value||'').trim();
+  const pass=document.getElementById('loginPassword').value||'';
   const btn=document.getElementById('loginBtn');
-  if(btn){ btn.disabled=true; }
-  signInWithRedirect(auth, googleProvider).catch(()=>{
-    showLogin('No se pudo iniciar sesión. Probá de nuevo.');
+  btn.disabled=true; btn.textContent='Entrando…';
+  signInWithEmailAndPassword(auth, email, pass).catch(()=>{
+    showLogin('Email o contraseña incorrectos.');
   });
 }
 
@@ -924,6 +928,11 @@ document.addEventListener('input', function(e){
 });
 
 document.addEventListener('keydown', function(e){
+  if(e.key==='Enter' && (e.target.id==='loginEmail'||e.target.id==='loginPassword')){
+    e.preventDefault();
+    doLogin();
+    return;
+  }
   if(e.key!=='Enter') return;
   const t=e.target;
   if(t && t.getAttribute && t.getAttribute('data-quick')==='1'){
